@@ -1,34 +1,50 @@
-// import AppError from '../errors/AppError';
-
-import { getCustomRepository } from 'typeorm';
+import { getCustomRepository, getRepository } from 'typeorm';
 
 import TransactionsRepository from '../repositories/TransactionsRepository';
-import Transaction from '../models/Transaction';
 
-interface RequestDTO {
+import Transaction from '../models/Transaction';
+import Category from '../models/Category';
+import AppError from '../errors/AppError';
+
+interface Request {
   title: string;
   type: 'income' | 'outcome';
-  value: 'number';
+  value: number;
   category: string;
 }
 
 class CreateTransactionService {
   public async execute({
     title,
-    value,
     type,
+    value,
     category,
-  }: RequestDTO): Promise<Transaction> {
-    const transactionsRepository = getCustomRepository(TransactionsRepository);
+  }: Request): Promise<Transaction> {
+    const transactionRepository = getCustomRepository(TransactionsRepository);
+    const categoryRepository = getRepository(Category);
 
-    const transaction = transactionsRepository.create({
+    let transactionCategory = await categoryRepository.findOne({
+      where: {
+        title: category,
+      },
+    });
+
+    if (!transactionCategory) {
+      transactionCategory = categoryRepository.create({
+        title: category,
+      });
+
+      await categoryRepository.save(transactionCategory);
+    }
+
+    const transaction = transactionRepository.create({
       title,
       value,
       type,
-      category,
+      category: transactionCategory,
     });
 
-    await transactionsRepository.save(transaction);
+    await transactionRepository.save(transaction);
 
     return transaction;
   }
